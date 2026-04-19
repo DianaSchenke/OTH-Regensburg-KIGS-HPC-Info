@@ -71,17 +71,63 @@ Wenn der interaktive job vor Ablauf der Zeit nicht mehr gebraucht wird, sollte e
 
 Details zu diesen Befehlen gibt es [hier](https://doc.nhr.fau.de/batch-processing/batch_system_slurm/).
 
-#### Wichtiger Hinweis zu IDEs
+### Nutzung von IDEs
 
-Die Remote IDE läuft _NICHT_ auf den Nodes, sondern auf dem zentralen Controller. Prozesse, die von der IDE gestartet werden, laufen somit auch nicht auf den Nodes. 
+Um die Nutzung von IDEs zu ermöglichen ist es nötig, einen SSH-Tunnel durch die Login Node ausfzubauen. Eine Anleiung dazu gibt es in diesem Abschnitt. 
 
-Der Controller ist _NICHT_ dafür gedacht, leistungsintensive Programme auszuführen.
+__Vorraussetzung__: SSH Verbindung über Terminal ist eingerichtet und funktioniert. 
 
-Am einfachsten ist es, scripte in der Konsole auf der Node zu starten, um dieses Problem zu umgehen
+#### 1. Im Terminal Verbindung zum Cluster aufbauen und interaktiven Slurm Job starten
 
-##### Lösung in Pycharm:
-- Runconfigs für Scripte, die Konsolenbefehl automatisieren
-- DebugServer um Debugging zu ermöglichen (siehe unten)
+Beispiel für 2 Stunden Job mit einer A40 auf dem Alex Cluster:
+```
+ssh alex
+salloc --gres=gpu:a40:1 --time=2:00:00
+```
+
+WICHTIG: Warten bis der Job gestartet und die Verbindung zur Node im Terminal aufgebaut ist.
+
+#### 2. In einem _zweiten_ Terminal Fenster den SSH Tunnel aufbauen
+
+Hierzu ist die adresse der Node mit dem grade erstellten interaktiven Job nötig. Diese findet sich in der Kommandozeile im ersten Terminal Fenster: Vor jedem Befehl steht dort soetwas wie `<Nutzer>@<Node>:~$`.
+
+Ein SSH Tunnel auf dem Port 6000 wird dann über folgender Befehl aufgebaut:
+```
+ssh -L 6000:<Node>:22 alex
+```
+Andere Ports funktionieren auch, entsprechend müssen nachfolgende Befehle dann abgeändert werden.
+
+Beispiel für Node mit ID a0325 auf dem Alex cluster:
+```
+ssh -L 6000:a0325:22 alex
+```
+
+### 3. PyCharm via Toolbox
+In Toolbox unter neue SSH Verbindung folgenden Command einfügen (mit entsprechenden Anpassungen):
+
+```
+ssh -p 6000 <USERNAME>@localhost -i /PFAD/ZUM/PRIVATE_KEY
+```
+
+Der Username ist der HPC-Account Name (zu finden z.B. in der Konsole oder im HPC Portal).
+
+Der angegebene Pfad ist der lokale Pfad zu dem bei der erstmaligen Verbindung zu den NHR Servern erstellte SSH Private Key.
+
+Standardmäßig sollte das soetwas wie `/home/<Benutzername>/.ssh/id_ed25519_nhr_fau` sein.
+
+Andere IDEs die SSH unterstützen sollen sich ebenfalls über den obigen Befehl verbinden können.
+
+### 4. Virtual Environment Einrichten
+
+Im Terminal die unten angegebenen Schritte durchführen, um ein Conda environment einzurichten.
+
+Sobald dieses im Terminal funktioniert, dieses als lokalen Interpreter in Pycharm setzen:
+
+Unten rechts auf interpreter clicken -> add new interpreter -> add local interpreter -> Select existing, conda, path to conda setzen, environment auswählen
+
+Den Pfad zur Conda executable findet man mit `conda info`.
+
+Sollte es Probleme geben erstmal PyCharm neustarten, alternativ auch in PyCharm mal "reload all from disk" und "invalidate cache" nutzen.
 
 ## Setup 
 
@@ -103,64 +149,16 @@ erforderlich.
 
 Als Erstes die [Initialisierungsschritte in der offiziellen Doku](https://doc.nhr.fau.de/environment/python-env/) befolgen.
 
+Nicht vergessen ein geeignetes python modul mit conda zu laden!
+
 Ein virtual environment wird am einfachsten mit Conda erstellt.
 
 ```
 conda create -n <env. name> python=<py. version>
 ```
 
-Wie mit Conda gewohnt muss es dann jedes Mal for dem start eines Jobs oder zu beginn einer interaktiven Session aktiviert werden.
+Wie mit Conda gewohnt muss es dann jedes Mal vor dem Start eines Jobs oder zu beginn einer interaktiven Session aktiviert werden.
 
 ```
 conda activate <my_env_name_here>
 ```
-
-#### IDEs
-
-Obwohl IDEs keine scripte ausführen sollen, ist es hilfreich (für Annotations etc.) wenn die IDE Zugriff auf das venv hat. Dies ist ohne weiteres möglich.
-
-
-### Debugger in PyCharm
-
-Problem: Debugserver muss auf der Node gestartet werden um zu funktionieren, das ist nicht ganz straight forward.
-
-#### Konfiguration
-
-Runconfig für den Debug-Server in PyCharm anlegen mit 
-```
-Hostname: 0.0.0.0
-Port: 5678
-```
-Falls der Port belegt ist einen anderen ausprobieren. Dann die Anweisungen in PyCharm befolgen, um pydevd-pycharm zu installieren und das Skript mit dem Debug-Server zu verbinden.
-
-
-
-
-#### Debugger Starten
-
-
-
-##### 0. Node allozieren, Module laden, venv starten
-```
-salloc --gres=gpu:a40:1 --time=3:00:00
-module add python
-conda activate <my_env_name_here>
-```
-
-
-##### 1. SSH Tunnel aufbauen 
-
-
-__Dieser Prozess muss in einem neuen Konsolenfenster gestartet werden, da er NICHT auf der Node laufen soll.__
-
-```
-ssh -N -R 5678:localhost:5678 <UserName>@<Node>
-```
-`<Username>` ist der FAU Username. `<Node>`
-
-
-##### 2. Debug Server starten
-(via PyCharm)
-
-##### 3. Script starten
-(Per Befehl in der Konsole auf der Node, nicht in PyCharm)
